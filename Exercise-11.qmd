@@ -1,0 +1,284 @@
+---
+title: "Exercise 11"
+author: "Cristina Garcia"
+format: html
+editor: visual
+---
+
+# Prelims:
+
+Load the following packages for this analysis:
+
+```{r}
+#| eval: true
+#| output: false
+library(tidyverse)
+library(dplyr)
+library(broom)
+library(naniar)
+library(janitor)
+library(MuMIn)
+```
+
+Load the data:
+
+```{r}
+d <- read_tsv("https://raw.githubusercontent.com/difiore/ada-datasets/main/Mammal_lifehistories_v2.txt")
+```
+
+To avoid issues with parenthesis, I also downloaded the package `{janitor}` to clean my data and remove parenthesis, spaces, and other characters from column names. The package appear in the **Prelims** section.
+
+```{r}
+d <- d %>%
+  clean_names()
+```
+
+# Step 1: Replace -999 values with `NA`
+
+The function `replace_with_na_all(),` from the `{naniar}` package to replace -999 values across all numerical columns with `NA`.
+
+```{r}
+d1 <- d %>%
+ replace_with_na_all(condition = ~. == -999)
+```
+
+# Step 2: Remove variables "litter size" and "refs"
+
+```{r}
+d2 <- d1 %>%
+  select("order", "family", "genus", "species", "mass_g", "gestation_mo", "newborn_g", "weaning_mo", "wean_mass_g", "afr_mo", "max_life_mo", "litters_year")
+```
+
+# Step 3: Log transform all numerical values
+
+```{r}
+d3 <- d2 %>%
+  mutate(across(where(is.numeric),log)) %>%
+  drop_na("order", "family", "genus", "species", "mass_g", "gestation_mo", "newborn_g", "weaning_mo", "wean_mass_g", "afr_mo", "max_life_mo", "litters_year")
+```
+
+# Step 4: Adding new variables
+
+## Regressions
+
+```{r}
+m_gestation <- lm(data = d3, na.action=na.exclude, mass_g ~ gestation_mo)
+
+m_weaning <- lm(data = d3, na.action=na.exclude, mass_g ~ weaning_mo)
+
+m_AFR <- lm(data = d3, na.action=na.exclude, mass_g ~ afr_mo)
+
+m_max.life <- lm(data = d3, na.action=na.exclude, mass_g ~ max_life_mo)
+
+m_newborn <- lm(data = d3, na.action=na.exclude, mass_g ~ newborn_g)
+
+m_wean.mass <- lm(data = d3, na.action=na.exclude, mass_g ~ wean_mass_g)
+
+```
+
+## Adding the new variables:
+
+```{r}
+d4 <- d3 %>%
+  mutate(
+    relGes = m_gestation$residuals,
+    relWean = m_weaning$residuals,
+    relAFR = m_AFR$residuals,
+    relLife = m_max.life$residuals,
+    relNewbornMass = m_newborn$residuals,
+    relWeanMass = m_wean.mass$residuals
+  )
+```
+
+# Step 5: Plots
+
+In order to add a count of individuals in the sample of each order, I ran this code before creating the plots:
+
+```{r}
+Orders <- d4 %>%
+  group_by(order) %>%
+  summarise(n = n())
+```
+
+## Max Lifespan and Order
+
+```{r}
+y_min1 <- min(d4$relLife)
+
+p_maxlife <- ggplot(d4, aes(x = order, y = relLife))+
+  geom_violin() +
+  stat_summary(fun = mean, geom = "point", color = "red") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Order", y = "Real Max Life") +
+  geom_text(data = Orders, aes(x = order, y = y_min1 - 0.5, label = paste0("n=", n)), color = "blue")
+
+print(p_maxlife)
+```
+
+If we simply look at the mean of the residuals, it would appear that the Sirenia order has the highest llifespan. However, the lack of a "violin" shape around the mean indicates that the sample for this order was too small (only 1). Thus, I would trust the only the orders with violin shapes. As such, I would say that the Cetacea and Perissodactyla orders tend to have the longest lifespan. Not only is the average higher than the other orders, but the violin shape is shorter, suggesting that the samples did not have much variation. That is too say, most of the sample survived for longer. However, these is also a small sample with only three individuals for Cetacea and two for Perissodactyla. For orders like Rodentia, even though the mean lifespan is not as low as others, the tails of the violin show that while some of the individuals survived almost as long as the individuals from Cetacea, just as many died quite early. Taking everything into account, I would argue that Artiodactyla is the order with the most proof for a highest lifespan, as it is the order with the highest lifespan among those with a larger sample.
+
+## Newborn Mass and Order
+
+```{r}
+y_min2 <- min(d4$relNewbornMass)
+p_NewbornMass <- ggplot(d4, aes(x = order, y = relNewbornMass))+
+  geom_violin() +
+  stat_summary(fun = mean, geom = "point", color = "red") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Order", y = "Real Newborn Mass (g)") +
+  geom_text(data = Orders, aes(x = order, y = y_min2 - 0.5, label = paste0("n=", n)), color = "blue")
+print(p_NewbornMass)
+```
+
+By far the order with the highest newborn mass is Carnivora. However, this order is also the one with the most variation. The shape of the violin suggests that only a few individuals in the sample had a high mass as newborns. The lower tail of the violin actually shows that more of them actually had lower mass as newborns. While the mean for the mass of Lagomorpha is slightly lower than the mean for the Carnivora, the shape of the violin suggests less variation. That is to say, more of the individuals had a newborn mass similar to the mean. However, as before, the sample size for this order is also on the lower side with only 7 individuals. Despite this, if this trend continued throughout the population, I would guess that Lagomorpha tends to have a higher newborn mass than Carnivora, and that those with high newborn mass in Carnivora are actually outliers.
+
+## Weaning Mass and Order
+
+```{r}
+y_min3 <- min(d4$relWeanMass)
+p_WeaningMass <- ggplot(d4, aes(x = order, y = relWeanMass))+
+  geom_violin() +
+  stat_summary(fun = mean, geom = "point", color = "red") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Order", y = "Real Weaning Mass (g)") +
+  geom_text(data = Orders, aes(x = order, y = y_min3 - 0.5, label = paste0("n=", n)), color = "blue")
+print(p_WeaningMass)
+```
+
+Looking at this graph, it appears that Lagomorpha has the highest mass at weaning. In addition, when comparing this graph to the previous one, it would appear that variation in weight is much higher at weaning than it is at birth. I wonder what that says about the survival rate and rate of growth of the Lagomorpha? On the other hand, it appears that the mean and the range of weights for Carnivora stays quite similar between birth and weaning. Once again, however, the three orders with the highest means for the weight at weaning are those orders with only one individual in the sample.
+
+# Step 6: Model and Model Selection
+
+## Model Selection and Questions for Max Life
+
+### Model and Model Selection
+
+```{r}
+life_model <- lm(data = d4, na.action = na.fail, max_life_mo ~ gestation_mo + newborn_g + weaning_mo + wean_mass_g + litters_year + mass_g)
+
+life_dredge <- dredge(life_model)
+
+head(life_dredge)
+```
+
+The best model is the one that had the lowest AICc value at 256.8349 and a delta AICc value of 0.000. The formula for the best model would be: `lm(formula = max_life_mo ~ gestation_mo + litters_year + mass_g + weaning_mo + 1, data = d4, na.action = na.fail)`. The AICc and delta values were obtained from the tibble `life_dredge`, the formula was obtained using this code:
+
+```{r}
+life_best_model <- get.models(life_dredge, 1) [[1]]
+summary(life_best_model)
+```
+
+### Models with AICc Values Lower Than Four
+
+Only five models have delta AICc values lower than 4, and two more models have delta AICc values less than five but more than 4. In the set of five models with delta values under or equal to 4, the variables that appear repeatedly are age at weaning (mo), gestation time (mo), and litters per year. The variables mass (g), mass as newborn (g), and mass at weaning (g) were NOT present in all five models. This could be interpreted to mean that maximum life depends more on the age at weaning, gestation time, and the litters per year and that mass, in general and at different points in a lifespan (newborn and weaning), does not have a strong influence in the maximum lifespan of an individual. Although I must highlight that mass (g) was present in four of the five top models.
+
+The formula to find these variables was:
+
+```{r}
+life_top_models <- subset(life_dredge, delta <= 4)
+colSums(life_top_models[, 1:6] !=0) == nrow(life_top_models)
+```
+
+### Model Average and Plot
+
+Lastly, to calculate the model-averaged coefficients and their CIs across the tope five models I used this code:
+
+```{r}
+life_avg <- model.avg(life_dredge, subset = delta <= 4)
+summary(life_avg)
+```
+
+To plot this data, first I need to tidy the data in a way ggplot can read into a plot:
+
+```{r}
+life_tidy_avg <- as.data.frame(confint(life_avg, full = TRUE)) %>%
+  mutate(
+    term = rownames(.),
+    estimate = coef(life_avg, full = TRUE)
+  ) %>%
+  filter(term != "(Intercept)")
+
+print(life_tidy_avg)
+```
+
+Now that the data is in tidy form, I can plot:
+
+```{r}
+life_avg_plot <- ggplot(life_tidy_avg, 
+                        aes(x = reorder(term, estimate), 
+                            y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = `2.5 %`, ymax = `97.5 %`)) +
+  labs(x = "Predictor Variables", y = "Model-averaged Estimate")
+
+print(life_avg_plot)
+```
+
+## Model Selection for Age of First Reproduction
+
+### Model and Model Selection
+
+```{r}
+afr_model <- lm(data = d4, na.action = na.fail, afr_mo ~ gestation_mo + newborn_g + weaning_mo + wean_mass_g + litters_year + mass_g)
+
+afr_dredge <- dredge(afr_model)
+
+head(afr_dredge)
+```
+
+The best model is the one that had the lowest AICc value at 321.2266 and a delta AICc value of 0.000. The formula for the best model would be: `lm(formula = afr_mo ~ gestation_mo + litters_year + mass_g +      weaning_mo + 1, data = d4, na.action = na.fail)`. The AICc and delta values were obtained from the tibble `afr_dredge`, the formula was obtained using this code:
+
+```{r}
+afr_best_model <- get.models(afr_dredge, 1) [[1]]
+summary(afr_best_model)
+```
+
+### Models with AICc Values Lower Than Four
+
+Ten models have delta AICc values lower than 4, and two more models have delta AICc values less than five but more than 4. In the set of ten models with delta values under or equal to 4, the only variables that appear repeatedly are gestation time (mo) and litters per year. The rest of the variables were not present in all 10 models. However, I must point out that age at weaning (mo) was present in the first 7 models, including the best fit model, which could indicate that age at weaning has somewhat of an effect on age at first reproduction.
+
+The formula to find these variables was:
+
+```{r}
+afr_top_models <- subset(afr_dredge, delta <= 4)
+colSums(afr_top_models[, 1:6] !=0) == nrow(afr_top_models)
+```
+
+### Model Averages and Plot
+
+```{r}
+afr_avg <- model.avg(afr_dredge, subset = delta <= 4)
+summary(afr_avg)
+```
+
+To tidy the data:
+
+```{r}
+afr_tidy_avg <- as.data.frame(confint(afr_avg, full = TRUE)) %>%
+  mutate(
+    term = rownames(.),
+    estimate = coef(afr_avg, full = TRUE)
+  ) %>%
+  filter(term != "(Intercept)")
+print(afr_tidy_avg)
+```
+
+Plot:
+
+```{r}
+afr_avg_plot <- ggplot(afr_tidy_avg, aes(
+  x = reorder(term, estimate),
+  y = estimate
+)) +
+  geom_point() +
+  geom_errorbar(aes(
+    ymin = `2.5 %`,
+    ymax = `97.5 %`
+  )) +
+  labs(
+    x = "Predictor Variables",
+    y = "Model-average Estimate"
+  )
+
+print(afr_avg_plot)
+```
