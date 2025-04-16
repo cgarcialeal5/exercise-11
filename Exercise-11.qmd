@@ -92,25 +92,23 @@ d4 <- d3 %>%
 
 # Step 5: Plots
 
-In order to add a count of individuals in the sample of each order, I ran this code before creating the plots:
-
-```{r}
-Orders <- d4 %>%
-  group_by(order) %>%
-  summarise(n = n())
-```
-
 ## Max Lifespan and Order
 
 ```{r}
-y_min1 <- min(d4$relLife)
 
-p_maxlife <- ggplot(d4, aes(x = order, y = relLife))+
+p_maxlife <- ggplot(d4, aes(x = order, y = relLife)) +
   geom_violin() +
   stat_summary(fun = mean, geom = "point", color = "red") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "Order", y = "Real Max Life") +
-  geom_text(data = Orders, aes(x = order, y = y_min1 - 0.5, label = paste0("n=", n)), color = "blue")
+  geom_text(
+    data = d4 %>%
+      filter(!is.na(relLife)) %>%
+      count(order) %>%
+      mutate(y = min(d4$relLife) - 0.5),
+    aes(x = order, y = y, label = paste0("n=", n)), 
+    color = "blue"
+    )
 
 print(p_maxlife)
 ```
@@ -120,13 +118,20 @@ If we simply look at the mean of the residuals, it would appear that the Sirenia
 ## Newborn Mass and Order
 
 ```{r}
-y_min2 <- min(d4$relNewbornMass)
+
 p_NewbornMass <- ggplot(d4, aes(x = order, y = relNewbornMass))+
   geom_violin() +
   stat_summary(fun = mean, geom = "point", color = "red") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "Order", y = "Real Newborn Mass (g)") +
-  geom_text(data = Orders, aes(x = order, y = y_min2 - 0.5, label = paste0("n=", n)), color = "blue")
+  geom_text(
+    data = d4 %>%
+      filter(!is.na(relNewbornMass)) %>%
+      count(order) %>%
+      mutate(y = min(d4$relNewbornMass) - 0.5),
+    aes(x = order, y = y, label = paste0("n=", n)), 
+    color = "blue"
+    )
 print(p_NewbornMass)
 ```
 
@@ -135,13 +140,20 @@ By far the order with the highest newborn mass is Carnivora. However, this order
 ## Weaning Mass and Order
 
 ```{r}
-y_min3 <- min(d4$relWeanMass)
+
 p_WeaningMass <- ggplot(d4, aes(x = order, y = relWeanMass))+
   geom_violin() +
   stat_summary(fun = mean, geom = "point", color = "red") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = "Order", y = "Real Weaning Mass (g)") +
-  geom_text(data = Orders, aes(x = order, y = y_min3 - 0.5, label = paste0("n=", n)), color = "blue")
+  geom_text(
+    data = d4 %>%
+      filter(!is.na(relWeanMass)) %>%
+      count(order) %>%
+      mutate(y = min(d4$relWeanMass) - 0.5),
+    aes(x = order, y = y, label = paste0("n=", n)), 
+    color = "blue"
+    )
 print(p_WeaningMass)
 ```
 
