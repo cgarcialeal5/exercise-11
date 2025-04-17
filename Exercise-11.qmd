@@ -53,8 +53,7 @@ d2 <- d1 %>%
 
 ```{r}
 d3 <- d2 %>%
-  mutate(across(where(is.numeric),log)) %>%
-  drop_na("order", "family", "genus", "species", "mass_g", "gestation_mo", "newborn_g", "weaning_mo", "wean_mass_g", "afr_mo", "max_life_mo", "litters_year")
+  mutate(across(where(is.numeric),log))
 ```
 
 # Step 4: Adding new variables
@@ -81,12 +80,12 @@ m_wean.mass <- lm(data = d3, na.action=na.exclude, mass_g ~ wean_mass_g)
 ```{r}
 d4 <- d3 %>%
   mutate(
-    relGes = m_gestation$residuals,
-    relWean = m_weaning$residuals,
-    relAFR = m_AFR$residuals,
-    relLife = m_max.life$residuals,
-    relNewbornMass = m_newborn$residuals,
-    relWeanMass = m_wean.mass$residuals
+    relGes = resid(m_gestation),
+    relWean = resid(m_weaning),
+    relAFR = resid(m_AFR),
+    relLife = resid(m_max.life),
+    relNewbornMass = resid(m_newborn),
+    relWeanMass = resid(m_wean.mass)
   )
 ```
 
@@ -97,83 +96,68 @@ d4 <- d3 %>%
 ```{r}
 
 p_maxlife <- ggplot(d4, aes(x = order, y = relLife)) +
-  geom_violin() +
+  geom_boxplot() +
   stat_summary(fun = mean, geom = "point", color = "red") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "Order", y = "Real Max Life") +
-  geom_text(
-    data = d4 %>%
-      filter(!is.na(relLife)) %>%
-      count(order) %>%
-      mutate(y = min(d4$relLife) - 0.5),
-    aes(x = order, y = y, label = paste0("n=", n)), 
-    color = "blue"
-    )
+  labs(x = "Order", y = "Real Max Life")
 
 print(p_maxlife)
 ```
 
-If we simply look at the mean of the residuals, it would appear that the Sirenia order has the highest llifespan. However, the lack of a "violin" shape around the mean indicates that the sample for this order was too small (only 1). Thus, I would trust the only the orders with violin shapes. As such, I would say that the Cetacea and Perissodactyla orders tend to have the longest lifespan. Not only is the average higher than the other orders, but the violin shape is shorter, suggesting that the samples did not have much variation. That is too say, most of the sample survived for longer. However, these is also a small sample with only three individuals for Cetacea and two for Perissodactyla. For orders like Rodentia, even though the mean lifespan is not as low as others, the tails of the violin show that while some of the individuals survived almost as long as the individuals from Cetacea, just as many died quite early. Taking everything into account, I would argue that Artiodactyla is the order with the most proof for a highest lifespan, as it is the order with the highest lifespan among those with a larger sample.
+If I were to answer the question literally, Perissodactyla has the individual with the highest residual life span. However, the boxplot shows that it is obviously an outlier. The next order with the highest maximum value for residual life span is the Sirenia order, but both the median and mean of the Sirenia are significantly lower than the maximum value displayed by the upper line of the plot. If we base our answer on these measurements, I would argue that the Cetacea order has a more constant higher residual life span, as its mean and median values are higher than others and the maximum value is only lower than Sirenia.
 
 ## Newborn Mass and Order
 
 ```{r}
 
 p_NewbornMass <- ggplot(d4, aes(x = order, y = relNewbornMass))+
-  geom_violin() +
+  geom_boxplot() +
   stat_summary(fun = mean, geom = "point", color = "red") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "Order", y = "Real Newborn Mass (g)") +
-  geom_text(
-    data = d4 %>%
-      filter(!is.na(relNewbornMass)) %>%
-      count(order) %>%
-      mutate(y = min(d4$relNewbornMass) - 0.5),
-    aes(x = order, y = y, label = paste0("n=", n)), 
-    color = "blue"
+  labs(x = "Order", y = "Real Newborn Mass (g)")
     )
 print(p_NewbornMass)
 ```
 
-By far the order with the highest newborn mass is Carnivora. However, this order is also the one with the most variation. The shape of the violin suggests that only a few individuals in the sample had a high mass as newborns. The lower tail of the violin actually shows that more of them actually had lower mass as newborns. While the mean for the mass of Lagomorpha is slightly lower than the mean for the Carnivora, the shape of the violin suggests less variation. That is to say, more of the individuals had a newborn mass similar to the mean. However, as before, the sample size for this order is also on the lower side with only 7 individuals. Despite this, if this trend continued throughout the population, I would guess that Lagomorpha tends to have a higher newborn mass than Carnivora, and that those with high newborn mass in Carnivora are actually outliers.
+The order with the highest residual newborn mass (g) is Carnivora. Interestingly, while two individuals in this order represent outliers, the order as a whole still displays the highest residual newborn mass (g) maximum values. Both the median and mode of this order are also higher than the rest of orders. I must add that both Proboscidea and Tubulidentata orders have similar median and mean values than Carnivora. However, those samples are quite small, thus I would not count that information as representative of the order. Furthermore, the upper line of the boxplot for Carnivora still shows much higher residual newborn mass (g) values than these two orders.
 
 ## Weaning Mass and Order
 
 ```{r}
 
 p_WeaningMass <- ggplot(d4, aes(x = order, y = relWeanMass))+
-  geom_violin() +
+  geom_boxplot() +
   stat_summary(fun = mean, geom = "point", color = "red") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "Order", y = "Real Weaning Mass (g)") +
-  geom_text(
-    data = d4 %>%
-      filter(!is.na(relWeanMass)) %>%
-      count(order) %>%
-      mutate(y = min(d4$relWeanMass) - 0.5),
-    aes(x = order, y = y, label = paste0("n=", n)), 
-    color = "blue"
-    )
+  labs(x = "Order", y = "Real Weaning Mass (g)")
+
 print(p_WeaningMass)
 ```
 
-Looking at this graph, it appears that Lagomorpha has the highest mass at weaning. In addition, when comparing this graph to the previous one, it would appear that variation in weight is much higher at weaning than it is at birth. I wonder what that says about the survival rate and rate of growth of the Lagomorpha? On the other hand, it appears that the mean and the range of weights for Carnivora stays quite similar between birth and weaning. Once again, however, the three orders with the highest means for the weight at weaning are those orders with only one individual in the sample.
+Ignoring the outliers, the Carnivora order has the highest maximum value for the residual weaning mass. However, many orders (Hyracoidea, Lagomorpha, Pholidota, Proboscidea, Sirenia, Tubulidentata and Xenarthra) have higher mean and median values for residual weaning mass. Out of the orders with higher mean and median values, five have very small samples (Hyracoidea, Proboscidea, Sirenia, Tubulideentata, and Xenarthra). Thus, the order with the highest median and mean values for residual weaning mass that also has a larger sample size would be Pholidota.
 
 # Step 6: Model and Model Selection
+
+## Droping NA Values
+
+```{r}
+d5 <- d4 %>%
+  drop_na("mass_g", "gestation_mo", "newborn_g", "weaning_mo", "wean_mass_g", "afr_mo", "max_life_mo", "litters_year")
+```
 
 ## Model Selection and Questions for Max Life
 
 ### Model and Model Selection
 
 ```{r}
-life_model <- lm(data = d4, na.action = na.fail, max_life_mo ~ gestation_mo + newborn_g + weaning_mo + wean_mass_g + litters_year + mass_g)
+life_model <- lm(data = d5, na.action = na.fail, max_life_mo ~ gestation_mo + newborn_g + weaning_mo + wean_mass_g + litters_year + mass_g)
 
 life_dredge <- dredge(life_model)
 
 head(life_dredge)
 ```
 
-The best model is the one that had the lowest AICc value at 256.8349 and a delta AICc value of 0.000. The formula for the best model would be: `lm(formula = max_life_mo ~ gestation_mo + litters_year + mass_g + weaning_mo + 1, data = d4, na.action = na.fail)`. The AICc and delta values were obtained from the tibble `life_dredge`, the formula was obtained using this code:
+The best model is the one that had the lowest AICc value at 256.8349 and a delta AICc value of 0.000. The formula for the best model would be: `lm(formula = max_life_mo ~ gestation_mo + litters_year + mass_g + weaning_mo + 1, data = d5, na.action = na.fail)`. The AICc and delta values were obtained from the tibble `life_dredge`, the formula was obtained using this code:
 
 ```{r}
 life_best_model <- get.models(life_dredge, 1) [[1]]
@@ -231,14 +215,14 @@ print(life_avg_plot)
 ### Model and Model Selection
 
 ```{r}
-afr_model <- lm(data = d4, na.action = na.fail, afr_mo ~ gestation_mo + newborn_g + weaning_mo + wean_mass_g + litters_year + mass_g)
+afr_model <- lm(data = d5, na.action = na.fail, afr_mo ~ gestation_mo + newborn_g + weaning_mo + wean_mass_g + litters_year + mass_g)
 
 afr_dredge <- dredge(afr_model)
 
 head(afr_dredge)
 ```
 
-The best model is the one that had the lowest AICc value at 321.2266 and a delta AICc value of 0.000. The formula for the best model would be: `lm(formula = afr_mo ~ gestation_mo + litters_year + mass_g +      weaning_mo + 1, data = d4, na.action = na.fail)`. The AICc and delta values were obtained from the tibble `afr_dredge`, the formula was obtained using this code:
+The best model is the one that had the lowest AICc value at 321.2266 and a delta AICc value of 0.000. The formula for the best model would be: `lm(formula = afr_mo ~ gestation_mo + litters_year + mass_g +      weaning_mo + 1, data = d5, na.action = na.fail)`. The AICc and delta values were obtained from the tibble `afr_dredge`, the formula was obtained using this code:
 
 ```{r}
 afr_best_model <- get.models(afr_dredge, 1) [[1]]
